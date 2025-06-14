@@ -74,7 +74,7 @@
         return shader;
       }
 
-      let u_time_location = new Date().getMilliseconds();
+      let u_time_location = new Date().getTime();
 
       function initShaders() {
         function loadShaderText(uri) {
@@ -115,7 +115,7 @@
 
         gl.useProgram(program);
 
-        u_time_location = new Date().getMilliseconds();
+        u_time_location = new Date().getTime();
         u_time_location = gl.getUniformLocation(program, "u_time");
         color = gl.getUniformLocation(program, "color_canvas");
       }
@@ -141,7 +141,7 @@
         gl.enableVertexAttribArray(0);
         gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
 
-        timeFromStart = new Date().getMilliseconds() - startTime;
+        timeFromStart = new Date().getTime() - startTime;
         gl.uniform1f(u_time_location, timeFromStart / 1000.0);
 
         gl.drawArrays(gl.TRIANGLES, 0, 3);
@@ -170,7 +170,7 @@
         initShaders();
         initBuffer();
 
-       startTime = new Date().getMilliseconds();
+       startTime = new Date().getTime();
        drawScene();
      }
      </script>
