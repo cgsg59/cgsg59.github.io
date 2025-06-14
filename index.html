@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <script src="https://cdn.jsdelivr.net/npm/vanilla-picker@2.12.3/dist/vanilla-picker.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vanilla-picker@2.12.3/dist/vanilla-picker.csp.min.css">
+    <script type="text/javascript">
+      let gl;
+      let startTime;
+
+      function initGL(canvas) {
+        gl = canvas.getContext("webgl2");
+        gl.viewportWidth = canvas.width;
+        gl.viewportHeight = canvas.height;
+      }
+
+      const shaderFs = `#version 300 es
+        precision highp float;
+        layout (location = 0) out vec4 o_color;
+
+        uniform highp float u_time;
+        uniform highp vec4 color_canvas;
+
+        highp float Mandl( highp vec2 Z, highp vec2 C ) {
+          highp float n = 0.0;
+
+          while (n < 255.0 && (Z.x * Z.x + Z.y * Z.y) < 4.0)
+          {
+            vec2 Z1 = Z;
+            Z.x = Z1.x * Z1.x - Z1.y * Z1.y + C.x;
+            Z.y = 2.0 * Z1.x * Z1.y + C.y;
+            n += 1.0;
+          }
+
+          return n;
+        }
+
+        highp vec2 Func( void ) {
+          highp vec2 x;
+
+          x.x = gl_FragCoord.x * 5.7 / 500.0 - 3.0;
+          x.y = gl_FragCoord.y * 5.7 / 500.0 - 3.0;
+
+          return x;
+        }
+
+        void main() {
+          highp vec2 C;
+          C.x = sin(u_time + 1.0) * 0.08 + 0.35;
+          C.y = cos(u_time + 1.0) * 0.04 + 0.15;
+          highp float l = Mandl(Func(), C);
+          o_color = vec4((color_canvas.x + l), (color_canvas.y + l - 140.0) +  50.0, (color_canvas.z + l - 15.0 + 16.0) + 50.0, 1.0);
+        }`;
+
+      const shaderVs = `#version 300 es
+        precision highp float;
+        layout (location = 0) in highp vec2 a_pos;
+
+        void main() {
+          gl_Position = vec4(a_pos, 0, 1);
+        }`;
+
+      let color = 0x85b6ea;
+
+      function getShader(shaderStr, type) {
+        const shader = gl.createShader(type);
+
+        gl.shaderSource(shader, shaderStr);
+        gl.compileShader(shader);
+
+        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+          alert(gl.getShaderInfoLog(shader));
+        }
+
+        return shader;
+      }
+
+      let u_time_location = new Date().getMilliseconds();
+
+      function initShaders() {
+        function loadShaderText(uri) {
+          return fetch(uri)
+            .then((response) => {
+              if (!response.ok) {
+                throw "Resource not found";
+              }
+              return response.text();
+            })
+            .then((text) => {
+              return text;
+            });
+        }
+
+        Promise.all([
+          loadShaderText("vertex.glsl"),
+          loadShaderText("fragment.glsl"),
+        ])
+          .then((shaders) => {
+            console.log(shaders);
+          })
+          .catch((error) => {
+            console.log(error);
+          });
+
+        const vs = getShader(shaderFs, gl.FRAGMENT_SHADER);
+        const fs = getShader(shaderVs, gl.VERTEX_SHADER);
+
+        const program = gl.createProgram();
+        gl.attachShader(program, vs);
+        gl.attachShader(program, fs);
+        gl.linkProgram(program);
+
+        if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+          alert("Program linkage error");
+        }
+
+        gl.useProgram(program);
+
+        u_time_location = new Date().getMilliseconds();
+        u_time_location = gl.getUniformLocation(program, "u_time");
+        color = gl.getUniformLocation(program, "color_canvas");
+      }
+
+      let vertexBuffer;
+
+      function initBuffer() {
+        vertexBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+        vertices = [-1, -1, 3, -1, -1, 3];
+        gl.bufferData(
+          gl.ARRAY_BUFFER,
+          new Float32Array(vertices),
+          gl.STATIC_DRAW
+        );
+      }
+
+      function drawScene() {
+        gl.clearColor(0, 1, 0, 1);
+        gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+
+        gl.enableVertexAttribArray(0);
+        gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+
+        timeFromStart = new Date().getMilliseconds() - startTime;
+        gl.uniform1f(u_time_location, timeFromStart / 1000.0);
+
+        gl.drawArrays(gl.TRIANGLES, 0, 3);
+        window.requestAnimationFrame(drawScene);
+      }
+
+      function onStart() {
+        console.log("ABC");
+
+        let parent = document.querySelector('#parent');
+        let picker = new Picker(parent);
+
+        let colorSelector = document.querySelector('#colorSelector');
+        let picker1 = new Picker(colorSelector);
+        let canvas = document.getElementById("webgl-canvas");
+
+        colorPicker.addEventListener('input', () => {
+            color = colorPicker.value;
+        });
+
+        canvas.onmousemove = (ev) => {
+          console.log(`(${ev.x}, ${ev.y})`);
+        };
+
+        initGL(canvas);
+        initShaders();
+        initBuffer();
+
+       startTime = new Date().getMilliseconds();
+       drawScene();
+     }
+     </script>
+  </head>
+  <body onload="onStart();">
+    <input type="color" id="colorPicker" value="#00ffaa">
+    <canvas
+      id="webgl-canvas"
+      style="border: none"
+      width="500"
+      height="500"
+      color="#00ffaa"
+    ></canvas>
+    <div id="parent">Change color from fractal</div>
+    <br>
+    <br>
+    <div id="colorSelector">Change color from canvas</div>
+  </body>
+</html>
